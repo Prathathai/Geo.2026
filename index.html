@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agri-Climate Map - แผนที่สภาพอากาศและการเกษตร</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  
+  <!-- Google Fonts (Prompt) -->
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+  
+  <!-- Inline CSS -->
+  <style>
+    :root {
+      --primary: #2b8a3e;
+      --primary-hover: #236b31;
+      --bg-color: #f8f9fa;
+      --text-main: #212529;
+      --text-muted: #6c757d;
+      --border-color: #dee2e6;
+      --card-bg: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Prompt', sans-serif;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .app-container {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* Sidebar Styling */
+    .sidebar {
+      width: 380px;
+      background: var(--card-bg);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      z-index: 1000;
+      box-shadow: 4px 0 15px rgba(0,0,0,0.03);
+    }
+
+    .brand h1 {
+      font-size: 1.5rem;
+      color: var(--primary);
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .brand p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .control-group {
+      margin-bottom: 20px;
+    }
+
+    .control-group label {
+      display: block;
+      font-size: 0.9rem;
+      font-weight: 500;
+      margin-bottom: 8px;
+      color: var(--text-main);
+    }
+
+    select {
+      width: 100%;
+      padding: 10px 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: #fff;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    select:focus {
+      border-color: var(--primary);
+    }
+
+    /* Info Card */
+    .info-card {
+      background: var(--bg-color);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 16px;
+      flex-grow: 1;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+
+    .info-card h3 {
+      font-size: 1.05rem;
+      color: var(--text-main);
+      margin-bottom: 10px;
+      border-bottom: 2px solid var(--border-color);
+      padding-bottom: 8px;
+    }
+
+    .placeholder-text {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .weather-detail p {
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+      color: var(--text-main);
+    }
+
+    .suitability-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-top: 8px;
+      color: #fff;
+    }
+
+    .bg-high { background-color: #2f9e44; }
+    .bg-medium { background-color: #f59f00; }
+    .bg-low { background-color: #e03131; }
+
+    /* Legend Box */
+    .legend-box {
+      background: #fff;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+    }
+
+    .legend-box h4 {
+      font-size: 0.85rem;
+      margin-bottom: 8px;
+      color: var(--text-muted);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+      color: var(--text-main);
+    }
+
+    .color-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 8px;
+    }
+
+    .color-dot.high { background-color: #2f9e44; }
+    .color-dot.medium { background-color: #f59f00; }
+    .color-dot.low { background-color: #e03131; }
+
+    footer {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border-color);
+      padding-top: 12px;
+    }
+
+    /* Map Styling */
+    #map {
+      flex-grow: 1;
+      height: 100%;
+      background: #e9ecef;
+    }
+
+    /* Responsive สำหรับมือถือ */
+    @media (max-width: 768px) {
+      .app-container {
+        flex-direction: column-reverse;
+      }
+      .sidebar {
+        width: 100%;
+        height: 45vh;
+        padding: 16px;
+      }
+      #map {
+        height: 55vh;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Sidebar แผงควบคุมและแสดงข้อมูล -->
+    <aside class="sidebar">
+      <div class="brand">
+        <h1>🌱 Agri-Climate Map</h1>
+        <p>ระบบวิเคราะห์สภาพอากาศและความเหมาะสมพืชเศรษฐกิจ</p>
+      </div>
+
+      <div class="control-group">
+        <label for="cropSelect">เลือกพืชเศรษฐกิจ:</label>
+        <select id="cropSelect">
+          <option value="rice">ข้าว (Rice)</option>
+          <option value="corn">ข้าวโพดเลี้ยงสัตว์ (Corn)</option>
+          <option value="cassava">มันสำปะหลัง (Cassava)</option>
+          <option value="sugarcane">อ้อยโรงงาน (Sugarcane)</option>
+        </select>
+      </div>
+
+      <div class="info-card" id="infoCard">
+        <h3>📍 แผงข้อมูลพื้นที่</h3>
+        <p class="placeholder-text">คลิกที่ตำแหน่งใดก็ได้บนแผนที่ เพื่อวิเคราะห์สภาพอากาศและประเมินความเหมาะสมของพืช</p>
+      </div>
+
+      <div class="legend-box">
+        <h4>ระดับความเหมาะสม</h4>
+        <div class="legend-item"><span class="color-dot high"></span> เหมาะสมมาก (Optimal)</div>
+        <div class="legend-item"><span class="color-dot medium"></span> เหมาะสมปานกลาง (Moderate)</div>
+        <div class="legend-item"><span class="color-dot low"></span> ไม่ค่อยเหมาะสม (Low Suitability)</div>
+      </div>
+
+      <footer>
+        <small>Powered by Leaflet.js & Open-Meteo API</small>
+      </footer>
+    </aside>
+
+    <!-- Map Container -->
+    <main id="map"></main>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Inline JavaScript -->
+  <script>
+    const map = L.map('map').setView([13.736717, 100.523186], 6);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    let currentMarker = null;
+
+    const cropCriteria = {
+      rice: { name: "ข้าว (Rice)", optTempMin: 20, optTempMax: 32, desc: "ต้องการอุณหภูมิอบอุ่นและความชื้นสูง เหมาะกับพื้นที่ราบลุ่มภาคกลางและภาคตะวันออกเฉียงเหนือ" },
+      corn: { name: "ข้าวโพดเลี้ยงสัตว์ (Corn)", optTempMin: 18, optTempMax: 30, desc: "ชอบดินระบายน้ำดี ไม่ชอบน้ำขัง เหมาะกับพื้นที่ดอน" },
+      cassava: { name: "มันสำปะหลัง (Cassava)", optTempMin: 24, optTempMax: 35, desc: "ทนแล้งได้ดี เจริญเติบโตได้ดีในดินร่วนปนทราย" },
+      sugarcane: { name: "อ้อยโรงงาน (Sugarcane)", optTempMin: 22, optTempMax: 34, desc: "ต้องการแสงแดดจัดและปริมาณน้ำฝนสม่ำเสมอในช่วงเติบโต" }
+    };
+
+    async function fetchWeatherData(lat, lon) {
+      try {
+        const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=precipitation_sum,temperature_2m_max&timezone=auto`);
+        const data = await response.json();
+        return data;
+      } catch (error) {
+        console.error("ไม่สามารถดึงข้อมูลสภาพอากาศได้:", error);
+        return null;
+      }
+    }
+
+    function evaluateSuitability(temp, cropKey) {
+      const crop = cropCriteria[cropKey];
+      if (temp >= crop.optTempMin && temp <= crop.optTempMax) {
+        return { level: "เหมาะสมมาก (Optimal)", class: "bg-high" };
+      } else if (temp >= (crop.optTempMin - 4) && temp <= (crop.optTempMax + 4)) {
+        return { level: "เหมาะสมปานกลาง (Moderate)", class: "bg-medium" };
+      } else {
+        return { level: "ไม่ค่อยเหมาะสมในช่วงนี้ (Low)", class: "bg-low" };
+      }
+    }
+
+    map.on('click', async function(e) {
+      const { lat, lng } = e.latlng;
+      const selectedCropKey = document.getElementById('cropSelect').value;
+      const cropInfo = cropCriteria[selectedCropKey];
+
+      const infoCard = document.getElementById('infoCard');
+      infoCard.innerHTML = `<h3>📍 กำลังโหลดข้อมูล...</h3><p class="placeholder-text">ดึงข้อมูลสภาพอากาศ ณ พิกัด ${lat.toFixed(4)}, ${lng.toFixed(4)}</p>`;
+
+      if (currentMarker) {
+        map.removeLayer(currentMarker);
+      }
+      currentMarker = L.marker([lat, lng]).addTo(map);
+
+      const weatherData = await fetchWeatherData(lat, lng);
+
+      if (weatherData && weatherData.current_weather) {
+        const currentTemp = weatherData.current_weather.temperature;
+        const windSpeed = weatherData.current_weather.windspeed;
+        const evaluation = evaluateSuitability(currentTemp, selectedCropKey);
+
+        infoCard.innerHTML = `
+          <h3>📍 ข้อมูลพื้นที่วิเคราะห์</h3>
+          <div class="weather-detail">
+            <p><b>พิกัด:</b> ${lat.toFixed(2)}, ${lng.toFixed(2)}</p>
+            <p><b>อุณหภูมิอากาศ:</b> ${currentTemp} °C</p>
+            <p><b>ความเร็วลม:</b> ${windSpeed} กม./ชม.</p>
+            <hr style="margin: 10px 0; border:0; border-top:1px solid #dee2e6;">
+            <p><b>พืชที่เลือก:</b> ${cropInfo.name}</p>
+            <p><b>คำแนะนำพื้นที่:</b> ${cropInfo.desc}</p>
+            <div><b>ระดับความเหมาะสม:</b><br>
+              <span class="suitability-badge ${evaluation.class}">${evaluation.level}</span>
+            </div>
+          </div>
+        `;
+      } else {
+        infoCard.innerHTML = `<h3>❌ เกิดข้อผิดพลาด</h3><p class="placeholder-text">ไม่สามารถเชื่อมต่อข้อมูลสภาพอากาศได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง</p>`;
+      }
+    });
+  </script>
+</body>
+</html>
